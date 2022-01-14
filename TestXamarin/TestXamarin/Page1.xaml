@@ -4,7 +4,7 @@
              x:Class="TestXamarin.Page1">
     <ContentPage.Content>
         <StackLayout>
-            <Label Text="Авторизация" VerticalOptions="Center" HorizontalOptions="CenterAndExpand" Margin="0,300,0,0" FontSize="22"/>
+            <Label x:Name="label" Text="Авторизация" VerticalOptions="Center" HorizontalOptions="CenterAndExpand" Margin="0,250,0,0" FontSize="22"/>
             <Entry x:Name="loginEntry" VerticalOptions="Center" Margin="50,0,50,0" FontSize="18" Placeholder="Логин"/>
             <Entry x:Name="passwordEntry" VerticalOptions="Center" IsPassword="True" Margin="50,0,50,0" FontSize="18" Placeholder="Пароль"/>
             <Button Text="ВОЙТИ" VerticalOptions="Center" Margin="100,0,100,0" FontSize="20" Clicked="Button_Clicked" />

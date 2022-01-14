@@ -4,12 +4,12 @@
              x:Class="TestXamarin.Page2">
     <ContentPage.Content>
         <StackLayout>
-            <Picker x:Name="numberPicker" VerticalOptions="Center" Margin="50,150,50,0" FontSize="18" Title="Выберите Гос. номер автомобиля" SelectedIndexChanged ="numberPicker_SelectedIndexChanged"/>
-            <Button x:Name="dayButton" Text="Начать день" VerticalOptions="Center" Margin="50,50,50,0" FontSize="14" Clicked="ButtonDay_Clicked" />
-            <Button x:Name="dinnerButton" Text="Начать обед" VerticalOptions="Center" Margin="50,0,50,0" FontSize="14" Clicked="ButtonDinner_Clicked" />
+            <Picker x:Name="numberPicker" VerticalOptions="Center" Margin="50,100,50,0" FontSize="18" Title="Выберите Гос. номер автомобиля" SelectedIndexChanged ="numberPicker_SelectedIndexChanged"/>
+            <Button x:Name="dayButton" Text="Начать день" VerticalOptions="Center" Margin="50,50,50,0" FontSize="14" Clicked="ButtonDay_Clicked" IsEnabled="False"/>
+            <Button x:Name="dinnerButton" Text="Начать обед" VerticalOptions="Center" Margin="50,0,50,0" FontSize="14" Clicked="ButtonDinner_Clicked" IsEnabled="False"/>
             <Entry x:Name="runStartEntry" VerticalOptions="Center" Margin="50,50,50,0" FontSize="18" Placeholder="Пробег на начало дня" Keyboard="Numeric" />
             <Entry x:Name="runEndEntry" VerticalOptions="Center" Margin="50,0,50,0" FontSize="18" Placeholder="Пробег на конец дня" Keyboard="Numeric"/>
-            <Button x:Name="sendbutton" Text="Отправить данные" VerticalOptions="Center" Margin="50,50,50,0" FontSize="20" Clicked="ButtonSend_Clicked" />
+            <Button x:Name="sendbutton" Text="Отправить данные" VerticalOptions="Center" Margin="50,50,50,0" FontSize="20" Clicked="ButtonSend_Clicked" IsEnabled="False"/>
         </StackLayout>
     </ContentPage.Content>
 </ContentPage>
