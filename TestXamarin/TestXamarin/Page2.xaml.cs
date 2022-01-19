@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Plugin.Settings;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -26,7 +27,9 @@ namespace TestXamarin
         private double startLongitude;
         private double endLongitude;
 
-        private int step = -1;
+        private int step = STEP_NO;
+
+        private const int STEP_NO = -1;
         private const int STEP_START_DAY = 0;
         private const int STEP_DINNER = 1;
         private const int STEP_CONTINUE_WORK = 2;
@@ -34,80 +37,152 @@ namespace TestXamarin
 
         private readonly HttpClient client = new HttpClient();
 
-        private List<Car> cars;
-        private List<WorkingDay> days;
+        private List<Car> cars = new List<Car>();
+        private List<WorkingDay> workingDays = new List<WorkingDay>();
 
         private int workingDayId;
+
+        private bool exitTimer = false;
+       
         enum typeLocation { startLocation, endLocation}
 
 
         public static int userId;
         public static string userName;
+
+        public static string login;
+        public static string password;
+
+        public static bool firstLaunch = true;
         
 
         public Page2()
         {
+            
             InitializeComponent();
 
-            
+            //инициализация тулбара, кнопка выйти
+            ToolbarItem toolbar = new ToolbarItem()
+            {
+                Text = "Выход",
+                Order = ToolbarItemOrder.Primary,
+                Priority = 0,
+                
+
+            };
+
+            //установление действия на кнопку выйти
+            toolbar.Clicked += async (s, e) =>
+            {
+                bool result = await DisplayAlert(null, "Вы уверены, что хотите выйти?", "ДА", "НЕТ");
+
+                if (result)
+                {
+                    CrossSettings.Current.Remove("password");
+                    Navigation.RemovePage(this);
+                    await Navigation.PopAsync();
+                    
+                }
+            };
+
+            ToolbarItems.Add(toolbar);
         }
+
+       
 
         //запуск при инициализации страницы
         protected override async void OnAppearing()
         {
+            StateOfActivityFrame();
             //client.DefaultRequestHeaders.Accept.Clear();
             //client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-            var authData = string.Format("{0}:{1}", Page1.login, Page1.password);
-            var authHeaderValue = Convert.ToBase64String(Encoding.UTF8.GetBytes(authData));
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", authHeaderValue);
-
-
-            //получаем автомобили и записываем номера машин
-            HttpResponseMessage response = await client.GetAsync(ServerUrl.carsUrl);
-            string result = await response.Content.ReadAsStringAsync();
-
-            cars = JsonConvert.DeserializeObject<List<Car>>(result);
-
-            foreach (Car car in cars)
+            //при первом запуске страницы
+            if (firstLaunch)
             {
-                numberPicker.Items.Add(car.number.ToString());                             
+
+                //устанавливаем логин и пароль на сервер
+                var authData = string.Format("{0}:{1}", login, password);
+                var authHeaderValue = Convert.ToBase64String(Encoding.UTF8.GetBytes(authData));
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", authHeaderValue);
+
+
+                //получаем автомобили и записываем номера машин
+                HttpResponseMessage response = await client.GetAsync(ServerUrl.carsUrl);
+                string result = await response.Content.ReadAsStringAsync();
+
+                cars = JsonConvert.DeserializeObject<List<Car>>(result);
+
+                foreach (Car car in cars)
+                {
+                    numberPicker.Items.Add(car.number.ToString());
+                }
+
+                //получем(обновляем) актвных водителей, для получения процесса работы(шагов)
+                await Update_WorkingDays();
+
+                firstLaunch = false;
             }
 
-            //получем актвных водителей, для получения процесса работы(шагов)
-            response = await client.GetAsync(ServerUrl.active_drivers);
-            result = await response.Content.ReadAsStringAsync();
-
-    
-            days = JsonConvert.DeserializeObject<List<WorkingDay>>(result);
-
+            StateOfActivityFrame();
 
             base.OnAppearing();
         }
 
+        
+        //клик по кнопке начать(окончить) день
         private async void ButtonDay_Clicked(object sender, EventArgs e)
         {
-            
+            StateOfActivityFrame();
 
             if (dayButton.Text == "Начать день")
             {
 
                 //логика начала дня
 
+                //проверка поля пробег на начало дня на пустоту
+                if (runStartEntry.Text == null)
+                {
+                    StateOfActivityFrame();
+                    await DisplayAlert("Уведомление", "Пожалуйста, введите пробег на начало дня", "ОК");
+
+                    return;
+                }
+
+                //если пробег автомобиля пуст, то отправляем его на сервер
+                if (cars[numberPicker.SelectedIndex].mileage == 0)
+                {
+                    int startMileage = Convert.ToInt32(runStartEntry.Text);
+
+                    StringContent stringContent = new StringContent(JsonConvert.SerializeObject(new
+                    {
+                        number = cars[numberPicker.SelectedIndex].number,
+                        mileage = startMileage,
+                    }));
+                    stringContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+
+                    HttpResponseMessage message = await client.PutAsync(ServerUrl.carsUrl + cars[numberPicker.SelectedIndex].number + "/", stringContent);
+
+                    cars[numberPicker.SelectedIndex].mileage = startMileage;
+                }
+
+
                 await GetCurrentLocation(typeLocation.startLocation);
 
                 if (startLatitude == 0 || startLongitude == 0)
                 {
-                    await DisplayAlert("Уведомление", "Пожалуйта, включите геолокацию", "ОК");
+                    StateOfActivityFrame();
+                    await DisplayAlert("Уведомление", "Пожалуйста, включите геолокацию", "ОК");
+                    
                     return; 
                 }
 
+
+
+
                 step = STEP_START_DAY;
 
-                //timeStartDay = DateTime.Now.TimeOfDay;
-
-                //await DisplayAlert("Уведомление", $"Широта: { startLatitude } Долгота: { startLongitude } ", "ОК");
-
+                //записываем данные для отправки на сервер
                 var content = new StringContent(JsonConvert.SerializeObject(new { 
                     driver = userId, 
                     car = cars[numberPicker.SelectedIndex].id,
@@ -119,11 +194,21 @@ namespace TestXamarin
 
                 HttpResponseMessage response = await client.PostAsync(ServerUrl.workdays, content);
 
+                
+
                 //string result = await response.Content.ReadAsStringAsync();
 
                 //await DisplayAlert(null, result, "ok");
 
+
+                //получем(обновляем) актвных водителей, для получения процесса работы(шагов) и получаем ид активного водителя
+                await SetWorkingDayStatus();
+
                 dayButton.Text = "Окончить день";
+
+                dinnerButton.IsEnabled = true;
+                dayButton.IsEnabled = false;
+                runStartEntry.IsEnabled = false;
 
                 //CheckFillElements();
             }
@@ -136,26 +221,30 @@ namespace TestXamarin
 
                 if (endLatitude == 0 || endLongitude == 0)
                 {
-                    await DisplayAlert("Уведомление", "Пожалуйта, включите геолокацию", "ОК");
+                    StateOfActivityFrame();
+                    await DisplayAlert("Уведомление", "Пожалуйста, включите геолокацию", "ОК");
+                    
                     return;
                 }
 
-                step = STEP_END_WORK;
+
 
                 //timeEndDay = DateTime.Now.TimeOfDay;
 
                 //await DisplayAlert("Уведомление", $"Широта: { endLatitude } Долгота: { endLongitude }", "ОК");
 
+                step = STEP_END_WORK;
 
                 var content = new StringContent(JsonConvert.SerializeObject(new
-                {
-                    working_day_close_status = true,
+                {                    
                     geolocation_end = endLatitude + "|" + endLongitude,
                     step = step
-                })); ;
+                })); 
                 content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
 
                 HttpResponseMessage response = await client.PutAsync(ServerUrl.workdays + workingDayId, content);
+
+                
 
                 //string result = await response.Content.ReadAsStringAsync();
 
@@ -163,18 +252,26 @@ namespace TestXamarin
 
                 dayButton.IsEnabled = false;
                 sendbutton.IsEnabled = true;
+                runEndEntry.IsEnabled = true;
 
                 //CheckFillElements();
+
+                
             }
+
+            StateOfActivityFrame();
 
         }
 
         private async void ButtonDinner_Clicked(object sender, EventArgs e)
         {
+            StateOfActivityFrame();
+
             if (dinnerButton.Text == "Начать обед")
             {
 
                 //логика начала обеда
+
                 step = STEP_DINNER;
 
                 //timeStartDinner = DateTime.Now.TimeOfDay;              
@@ -186,6 +283,8 @@ namespace TestXamarin
                 content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
 
                 HttpResponseMessage response = await client.PutAsync(ServerUrl.workdays + workingDayId, content);
+
+                
 
                 //string result = await response.Content.ReadAsStringAsync();
 
@@ -199,6 +298,7 @@ namespace TestXamarin
             else
             {
                 //логика окончания обеда
+
                 step = STEP_CONTINUE_WORK;
 
                 //timeEndDinner = DateTime.Now.TimeOfDay;
@@ -211,42 +311,90 @@ namespace TestXamarin
 
                 HttpResponseMessage response = await client.PutAsync(ServerUrl.workdays + workingDayId, content);
 
+                
+
                 //string result = await response.Content.ReadAsStringAsync();
 
                 //await DisplayAlert(null, result, "ok");
 
                 dinnerButton.IsEnabled = false;
+                dayButton.IsEnabled = true;
             }
+
+            StateOfActivityFrame();
         }
 
         private async void ButtonSend_Clicked(object sender, EventArgs e)
         {
-            
-            if (runEndEntry.Text == null || runStartEntry.Text == null)
+            StateOfActivityFrame();
+
+            if (runEndEntry.Text == null)
             {
-                await DisplayAlert("Ввведены не все данные", "Пожалуйста, введите пробег на конец дня", "ОК");
+                StateOfActivityFrame();
+                await DisplayAlert("Уведомление", "Пожалуйста, введите пробег на конец дня", "ОК");
+                return;
+            }
+
+            int startMileage = Convert.ToInt32(runStartEntry.Text);
+            int endMileage = Convert.ToInt32(runEndEntry.Text);
+
+            if (endMileage <= startMileage)
+            {
+                StateOfActivityFrame();
+                await DisplayAlert("Ошибка", "Пробег на конец дня не может быть меньше или равен пробегу на начало дня", "ОК");
                 return;
             }
 
             //логика отправки сообщения
-            //////
+            /////////
+                      
+            //отправка пробега на конец дня на сервер
+            var content = new StringContent(JsonConvert.SerializeObject(new
+            {
+                number = cars[numberPicker.SelectedIndex].number,
+                mileage = endMileage,
+            }));
+            content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+         
+            HttpResponseMessage response = await client.PutAsync(ServerUrl.carsUrl + cars[numberPicker.SelectedIndex].number + "/", content);
+
+            cars[numberPicker.SelectedIndex].mileage = endMileage;
+
+
+            //завершаем рабочий день
+            content = new StringContent(JsonConvert.SerializeObject(new
+            {
+                working_day_close_status = true,
+            }));
+            content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+
+            response = await client.PutAsync(ServerUrl.workdays + workingDayId, content);
+
+
+            StateOfActivityFrame();
 
             await DisplayAlert("Спасибо за работу", "Данные успешно отправлены", "ОК");
+
 
             Process.GetCurrentProcess().CloseMainWindow();
         }
 
 
-        private void numberPicker_SelectedIndexChanged(object sender, EventArgs e)
+        private async void numberPicker_SelectedIndexChanged(object sender, EventArgs e)
         {
-            //устанавливаем пробег (если есть) на начало дня в зависимости от выбранного номера авто
+            StateOfActivityFrame();
+
+            await SetWorkingDayStatus();
+
+            //если имеется пробег на начало дня, то устанавливаем его
             if (cars[numberPicker.SelectedIndex].mileage != 0)
             {
                 runStartEntry.Text = cars[numberPicker.SelectedIndex].mileage.ToString();
                 runStartEntry.IsEnabled = false;
             }
-
-            SetWorkingDayStatus();
+           
+            
+            StateOfActivityFrame();
         }
 
         
@@ -288,11 +436,13 @@ namespace TestXamarin
         }
 
         //устанавливаем водителя и его статус для включения/отключения кнопок
-        private void SetWorkingDayStatus()
+        private async Task SetWorkingDayStatus()
         {
-            UpdateButtons();
+            await Update_WorkingDays();
 
-            foreach (WorkingDay day in days)
+            UpdateData();
+
+            foreach (WorkingDay day in workingDays)
             {
                 if (day.driver == userId)
                 {
@@ -307,12 +457,18 @@ namespace TestXamarin
             if (step == STEP_START_DAY)
             {
                 dayButton.Text = "Окончить день";
+                dinnerButton.IsEnabled = true;
+                dayButton.IsEnabled = false;
+                runStartEntry.IsEnabled = false;
             }
 
             else if (step == STEP_DINNER)
             {
                 dayButton.Text = "Окончить день";
                 dinnerButton.Text = "Окончить обед";
+                dinnerButton.IsEnabled = true;
+                dayButton.IsEnabled = false;
+                runStartEntry.IsEnabled = false;
             }
 
             else if (step == STEP_CONTINUE_WORK)
@@ -320,6 +476,8 @@ namespace TestXamarin
                 dayButton.Text = "Окончить день";
                 dinnerButton.Text = "Окончить обед";
                 dinnerButton.IsEnabled = false;
+                dayButton.IsEnabled = true;
+                runStartEntry.IsEnabled = false;
             }
 
             else if (step == STEP_END_WORK)
@@ -329,33 +487,125 @@ namespace TestXamarin
                 dayButton.IsEnabled = false;
                 dinnerButton.IsEnabled = false;
                 sendbutton.IsEnabled = true;
+                runEndEntry.IsEnabled = true;
+                runStartEntry.IsEnabled = false;
+            }
+
+            
+        }
+
+        //обновляем кнопки, ид и шаг для активного водителя
+        private void UpdateData()
+        {
+            workingDayId = 0;
+            step = STEP_NO;
+
+            dayButton.IsEnabled = true;
+            dinnerButton.IsEnabled = false;
+            runStartEntry.IsEnabled = true;
+            runEndEntry.IsEnabled = false;
+            sendbutton.IsEnabled = false;
+            dayButton.Text = "Начать день";
+            dinnerButton.Text = "Начать обед";
+            
+        }
+
+        //переопределение метода нажатия кнопки назад
+        protected override bool OnBackButtonPressed()
+        {
+
+            AnimationPopup();
+
+            return true;
+            
+        }
+
+        //управление анимацией всплывающего окна при нажатии кнопки назад
+        private async void AnimationPopup()
+        {
+            
+
+            if (!popupLayout.IsVisible)
+            {
+                popupLayout.IsVisible = !popupLayout.IsVisible;
+                //this.popuplayout.AnchorX = 1;
+                //this.popuplayout.AnchorY = 1;
+
+                Animation scaleAnimation = new Animation(
+                    f => popupLayout.Scale = f,
+                    0,
+                    1,
+                    Easing.SinInOut);
+
+                Animation fadeAnimation = new Animation(
+                    f => popupLayout.Opacity = f,
+                    0.2,
+                    1,
+                    Easing.SinInOut);
+
+                scaleAnimation.Commit(popupLayout, "popupScaleAnimation", 250);
+                fadeAnimation.Commit(popupLayout, "popupFadeAnimation", 250);
+
+                //запускаем таймер на 2 секунды для подтверждения выхода из приложения
+                Device.StartTimer(TimeSpan.FromSeconds(2), () =>
+                {
+                    exitTimer = false;
+
+                    AnimationPopup();
+
+                    return false;
+                });
+
+                exitTimer = true;
+            }
+            else
+            {
+                //если нажимаем на кнопку назад повторно, то выходим из приложения
+                if (exitTimer)
+                {
+                    Process.GetCurrentProcess().CloseMainWindow();
+                }
+
+                await Task.WhenAny<bool>
+                  (
+                    popupLayout.FadeTo(0, 200, Easing.SinInOut)
+                  );
+
+                popupLayout.IsVisible = !popupLayout.IsVisible;
+            }
+
+                      
+        }
+
+        //управление состоянием индикатора загрузки
+        private void StateOfActivityFrame()
+        {
+            if (activityFrame.IsVisible)
+            {
+                activityFrame.IsVisible = false;
+                return;
+            }
+
+            else
+            {
+                activityFrame.IsVisible = true;
+                return;
             }
         }
 
-        private void UpdateButtons()
+        //обновляем рабочие дни, берем данные с сервера
+        private async Task Update_WorkingDays()
         {
-            dayButton.IsEnabled = true;
-            dinnerButton.IsEnabled = true;
-            dayButton.Text = "Начать день";
-            dinnerButton.Text = "Начать обед";
+            workingDays.Clear();
+
+            var response = await client.GetAsync(ServerUrl.active_drivers);
+            string result = await response.Content.ReadAsStringAsync();
+
+
+            workingDays = JsonConvert.DeserializeObject<List<WorkingDay>>(result);
         }
 
-        //проверить заполненость элементов, для появления кнопки отправить данные
-        //private void CheckFillElements()
-        //{
-
-        //    TimeSpan time = new TimeSpan(0, 0, 0);
-        //    if (startLatitude == 0 || endLatitude == 0 || startLongitude == 0 || endLongitude == 0 || numberPicker.SelectedIndex == -1 || TimeSpan.Compare(timeStartDay, time) == 0 || TimeSpan.Compare(timeEndDay, time) == 0 || runStartEntry.Text == null || runEndEntry.Text == null)
-        //    {
-        //        sendbutton.IsVisible = false;
-        //    }
-
-        //    else
-        //    { 
-        //    sendbutton.IsVisible = true;
-        //    }
-
-        //}
+        
 
 
     }

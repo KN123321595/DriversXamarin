@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json;
+using Plugin.Settings;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -20,32 +21,58 @@ namespace TestXamarin
 
         private readonly HttpClient client = new HttpClient();
 
+        
 
         public static string login;
         public static string password;
-
+        
 
         public Page1()
         {
             InitializeComponent();        
         }
 
-        protected override void OnAppearing()
+        protected override async void OnAppearing()
         {
+            await Internet_Connect();         
+
             
+
+            //StateOfActivityFrame();
+
+            login = CrossSettings.Current.GetValueOrDefault("login", null);
+            loginEntry.Text = login;
+
+
+            password = CrossSettings.Current.GetValueOrDefault("password", null);
+            passwordEntry.Text = password;
+
+
+            if (password != null)
+            {
+                Button_Clicked(new object(), new EventArgs());
+
+                
+            }
+
+            // StateOfActivityFrame();
+
             base.OnAppearing();
-            Internet_Connect();
+
         }
 
         private async void Button_Clicked(object sender, EventArgs e)
         {
-            
+            await Internet_Connect();
+
+            StateOfActivityFrame();
+
             if (loginEntry.Text != null && passwordEntry.Text != null)
             {
+
                 login = loginEntry.Text.Trim();
                 password = passwordEntry.Text.Trim();
-
-
+                     
                 //логика прохождения авторизации
 
                 //Dictionary<string, string> dict = new Dictionary<string, string>
@@ -80,19 +107,18 @@ namespace TestXamarin
                 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", authHeaderValue);
 
 
-                //получаем список водителей (нужен только положительный статус, чтобы узнать существует ли пользователь)
-                HttpResponseMessage response = await client.GetAsync(ServerUrl.driversUrl);
-                //string result = await response.Content.ReadAsStringAsync();
+                //ищем водителя по логину
+                HttpResponseMessage response = await client.GetAsync(ServerUrl.driversUrl + login + "/");
+                string result = await response.Content.ReadAsStringAsync();
+
+                
 
                 if (response.StatusCode == System.Net.HttpStatusCode.OK)
                 {
-                    //////
-                    string loginUser = "1";
-                    ///////
 
+                   
 
-                    response = await client.GetAsync(ServerUrl.usersUrl + loginUser + "/");
-                    string result = await response.Content.ReadAsStringAsync();
+                    //var drivers = JsonConvert.DeserializeObject<List<Driver>>(result);
 
                     //делаем преобразования и устанавливаем логин и пароль на вторую страницу
                     char[] simv = { '[', ']', '{', '}', '\"' };
@@ -107,12 +133,23 @@ namespace TestXamarin
                     string[] idWords = words[0].Split(':');
                     Page2.userId = Convert.ToInt32(idWords[1]);
 
-                    string[] usernameWords = words[1].Split(':');
+                    string[] usernameWords = words[2].Split(':');
                     Page2.userName = usernameWords[1];
 
-                    
-                    //await Navigation.PushModalAsync(new Page2());
-                    App.Current.MainPage = new NavigationPage(new Page2());
+                    Page2.login = login;
+                    Page2.password = password;
+
+                    Page2.firstLaunch = true;
+
+                    CrossSettings.Current.AddOrUpdateValue("login", login);
+                    CrossSettings.Current.AddOrUpdateValue("password", password);
+
+                    password = null;
+
+                    await Navigation.PushAsync(new Page2());
+                    //App.Current.MainPage = new Page2();
+
+                    passwordEntry.Text = null;
                 }
 
                 else
@@ -124,10 +161,17 @@ namespace TestXamarin
 
             }
 
+            else
+            {
+                await DisplayAlert("Ошибка авторизации", "Введены не все данные", "ОК");
+            }
+
+            StateOfActivityFrame();
+
         }
 
         //проверка подключения к интернету
-        private async void Internet_Connect()
+        private async Task Internet_Connect()
         {
             bool noInternet = true;
 
@@ -144,6 +188,22 @@ namespace TestXamarin
                 {
                     noInternet = false;
                 }
+            }
+        }
+
+        //Управление индикатором загрузки
+        private void StateOfActivityFrame()
+        {
+            if (activityFrame.IsVisible)
+            {
+                activityFrame.IsVisible = false;
+                return;
+            }
+
+            else
+            {
+                activityFrame.IsVisible = true;
+                return;
             }
         }
 
