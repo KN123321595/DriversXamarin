@@ -362,8 +362,10 @@ namespace TestXamarin
 
 
             //завершаем рабочий день
+             
             content = new StringContent(JsonConvert.SerializeObject(new
             {
+                mileage_end = endMileage,
                 working_day_close_status = true,
             }));
             content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
