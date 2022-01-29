@@ -207,8 +207,9 @@ namespace TestXamarin
                 dayButton.Text = "Окончить день";
 
                 dinnerButton.IsEnabled = true;
-                dayButton.IsEnabled = false;
+                //dayButton.IsEnabled = false;
                 runStartEntry.IsEnabled = false;
+                numberPicker.IsEnabled = false;
 
                 //CheckFillElements();
             }
@@ -251,12 +252,14 @@ namespace TestXamarin
                 //await DisplayAlert(null, result, "ok");
 
                 dayButton.IsEnabled = false;
+                dinnerButton.IsEnabled = false;
                 sendbutton.IsEnabled = true;
                 runEndEntry.IsEnabled = true;
+                numberPicker.IsEnabled = false;
 
                 //CheckFillElements();
 
-                
+
             }
 
             StateOfActivityFrame();
@@ -291,6 +294,8 @@ namespace TestXamarin
                 //await DisplayAlert(null, result, "ok");
 
                 dinnerButton.Text = "Окончить обед";
+                dayButton.IsEnabled = false;
+                numberPicker.IsEnabled = false;
 
 
             }
@@ -311,14 +316,15 @@ namespace TestXamarin
 
                 HttpResponseMessage response = await client.PutAsync(ServerUrl.workdays + workingDayId, content);
 
-                
+
 
                 //string result = await response.Content.ReadAsStringAsync();
 
                 //await DisplayAlert(null, result, "ok");
 
-                dinnerButton.IsEnabled = false;
+                dinnerButton.Text = "Начать обед";
                 dayButton.IsEnabled = true;
+                numberPicker.IsEnabled = false;
             }
 
             StateOfActivityFrame();
@@ -338,10 +344,10 @@ namespace TestXamarin
             int startMileage = Convert.ToInt32(runStartEntry.Text);
             int endMileage = Convert.ToInt32(runEndEntry.Text);
 
-            if (endMileage <= startMileage)
+            if (endMileage < startMileage)
             {
                 StateOfActivityFrame();
-                await DisplayAlert("Ошибка", "Пробег на конец дня не может быть меньше или равен пробегу на начало дня", "ОК");
+                await DisplayAlert("Ошибка", "Пробег на конец дня не может быть меньше пробега на начало дня", "ОК");
                 return;
             }
 
@@ -460,8 +466,9 @@ namespace TestXamarin
             {
                 dayButton.Text = "Окончить день";
                 dinnerButton.IsEnabled = true;
-                dayButton.IsEnabled = false;
+                //dayButton.IsEnabled = false;
                 runStartEntry.IsEnabled = false;
+                //numberPicker.IsEnabled = false;
             }
 
             else if (step == STEP_DINNER)
@@ -471,13 +478,14 @@ namespace TestXamarin
                 dinnerButton.IsEnabled = true;
                 dayButton.IsEnabled = false;
                 runStartEntry.IsEnabled = false;
+
             }
 
             else if (step == STEP_CONTINUE_WORK)
             {
                 dayButton.Text = "Окончить день";
-                dinnerButton.Text = "Окончить обед";
-                dinnerButton.IsEnabled = false;
+                //dinnerButton.Text = "Окончить обед";
+                dinnerButton.IsEnabled = true;
                 dayButton.IsEnabled = true;
                 runStartEntry.IsEnabled = false;
             }
@@ -485,7 +493,7 @@ namespace TestXamarin
             else if (step == STEP_END_WORK)
             {
                 dayButton.Text = "Окончить день";
-                dinnerButton.Text = "Окончить обед";
+                //dinnerButton.Text = "Окончить обед";
                 dayButton.IsEnabled = false;
                 dinnerButton.IsEnabled = false;
                 sendbutton.IsEnabled = true;
