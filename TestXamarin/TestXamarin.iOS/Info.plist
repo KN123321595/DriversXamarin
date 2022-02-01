@@ -21,9 +21,9 @@
 	<key>MinimumOSVersion</key>
 	<string>8.0</string>
 	<key>CFBundleDisplayName</key>
-	<string>TestXamarin</string>
+	<string>A2 DRV App</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.companyname.TestXamarin</string>
+	<string>A2 DRV App.A2 DRV App</string>
 	<key>CFBundleVersion</key>
 	<string>1.0</string>
 	<key>UILaunchStoryboardName</key>

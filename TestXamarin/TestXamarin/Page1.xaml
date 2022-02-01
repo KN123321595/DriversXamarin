@@ -5,10 +5,12 @@
              Title="Авторизация">
     <ContentPage.Content>
         <RelativeLayout >
-            <StackLayout>
+            <StackLayout RelativeLayout.XConstraint="{ConstraintExpression Type=RelativeToParent, Property=Width, Factor=0.1, Constant=0}"
+                         RelativeLayout.YConstraint="{ConstraintExpression Type=RelativeToParent, Property=Height, Factor=0.1, Constant=0}">
 
-                <Entry x:Name="loginEntry" VerticalOptions="Center"  Margin="50,250,50,0" FontSize="18" Placeholder="Логин" WidthRequest="270"/>
-                <Entry x:Name="passwordEntry" VerticalOptions="Center" IsPassword="True" Margin="50,0,50,0" FontSize="18" Placeholder="Пароль"/>
+                <Image Source="LogoA2.png" HeightRequest="60"/>
+                <Entry x:Name="loginEntry" VerticalOptions="Center" FontSize="18" Placeholder="Логин" WidthRequest="270" Margin="0,120,0,0"/>
+                <Entry x:Name="passwordEntry" VerticalOptions="Center" IsPassword="True" FontSize="18" Placeholder="Пароль"/>
                 <Button Text="войти" VerticalOptions="Center" Margin="50,10" FontSize="20" Clicked="Button_Clicked" />
 
                 
